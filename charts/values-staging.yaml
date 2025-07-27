@@ -1,6 +1,12 @@
 environment: staging
 namespace: staging
 
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 8000
+  nodePort: 30002
+
 movieService:
   replicaCount: 2
   image:

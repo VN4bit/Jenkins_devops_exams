@@ -1,6 +1,12 @@
 environment: qa
 namespace: qa
 
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  nodePort: 30001
+
 movieService:
   replicaCount: 2
   image:

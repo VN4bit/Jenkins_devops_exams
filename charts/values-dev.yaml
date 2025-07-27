@@ -1,6 +1,12 @@
 environment: dev
 namespace: dev
 
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  nodePort: 30000
+
 movieService:
   replicaCount: 1
   image:
