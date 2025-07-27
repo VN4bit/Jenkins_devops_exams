@@ -1,6 +1,18 @@
 environment: qa
 namespace: qa
 
+# Main application deployment configuration
+replicaCount: 2
+
+image:
+  repository: vn4bit/movie-service  # Default to movie service
+  tag: qa
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
 service:
   type: ClusterIP
   port: 80
@@ -15,6 +27,26 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
 
 movieService:
   replicaCount: 2
