@@ -87,6 +87,20 @@ pipeline {
                         # Update values for dev environment  
                         sed -i 's|tag: dev|tag: ${BUILD_TAG}|g' charts/values-dev.yaml
                         
+                        # Handle existing namespace
+                        if kubectl get namespace dev >/dev/null 2>&1; then
+                            echo "Namespace dev already exists, checking if it's managed by Helm..."
+                            if ! kubectl get namespace dev -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace dev exists but not managed by Helm, deleting and recreating..."
+                                kubectl delete namespace dev --ignore-not-found=true
+                                # Wait for namespace to be fully deleted
+                                while kubectl get namespace dev >/dev/null 2>&1; do
+                                    echo "Waiting for namespace dev to be deleted..."
+                                    sleep 2
+                                done
+                            fi
+                        fi
+                        
                         # Deploy to dev namespace
                         helm upgrade --install microservice-dev ./charts \\
                             --namespace dev \\
@@ -108,6 +122,20 @@ pipeline {
                         # Update values for QA environment
                         sed -i 's|tag: qa|tag: ${BUILD_TAG}|g' charts/values-qa.yaml
                         
+                        # Handle existing namespace
+                        if kubectl get namespace qa >/dev/null 2>&1; then
+                            echo "Namespace qa already exists, checking if it's managed by Helm..."
+                            if ! kubectl get namespace qa -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace qa exists but not managed by Helm, deleting and recreating..."
+                                kubectl delete namespace qa --ignore-not-found=true
+                                # Wait for namespace to be fully deleted
+                                while kubectl get namespace qa >/dev/null 2>&1; do
+                                    echo "Waiting for namespace qa to be deleted..."
+                                    sleep 2
+                                done
+                            fi
+                        fi
+                        
                         # Deploy to QA namespace
                         helm upgrade --install microservice-qa ./charts \\
                             --namespace qa \\
@@ -128,6 +156,20 @@ pipeline {
                     sh """
                         # Update values for staging environment
                         sed -i 's|tag: staging|tag: ${BUILD_TAG}|g' charts/values-staging.yaml
+                        
+                        # Handle existing namespace
+                        if kubectl get namespace staging >/dev/null 2>&1; then
+                            echo "Namespace staging already exists, checking if it's managed by Helm..."
+                            if ! kubectl get namespace staging -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace staging exists but not managed by Helm, deleting and recreating..."
+                                kubectl delete namespace staging --ignore-not-found=true
+                                # Wait for namespace to be fully deleted
+                                while kubectl get namespace staging >/dev/null 2>&1; do
+                                    echo "Waiting for namespace staging to be deleted..."
+                                    sleep 2
+                                done
+                            fi
+                        fi
                         
                         # Deploy to staging namespace
                         helm upgrade --install microservice-staging ./charts \\
@@ -158,6 +200,20 @@ pipeline {
                     sh """
                         # Update values for production environment
                         sed -i 's|tag: latest|tag: latest|g' charts/values-prod.yaml
+                        
+                        # Handle existing namespace
+                        if kubectl get namespace prod >/dev/null 2>&1; then
+                            echo "Namespace prod already exists, checking if it's managed by Helm..."
+                            if ! kubectl get namespace prod -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace prod exists but not managed by Helm, deleting and recreating..."
+                                kubectl delete namespace prod --ignore-not-found=true
+                                # Wait for namespace to be fully deleted
+                                while kubectl get namespace prod >/dev/null 2>&1; do
+                                    echo "Waiting for namespace prod to be deleted..."
+                                    sleep 2
+                                done
+                            fi
+                        fi
                         
                         # Deploy to production namespace
                         helm upgrade --install microservice-prod ./charts \\
