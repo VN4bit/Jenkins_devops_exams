@@ -66,4 +66,12 @@ nginx:
     type: ClusterIP
 
 ingress:
-  host: microservice-qa.local
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: microservice-qa.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

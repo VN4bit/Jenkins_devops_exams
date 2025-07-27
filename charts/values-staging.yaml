@@ -66,4 +66,12 @@ nginx:
     type: LoadBalancer
 
 ingress:
-  host: microservice-staging.local
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: microservice-staging.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
