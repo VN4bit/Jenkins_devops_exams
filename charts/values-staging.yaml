@@ -1,0 +1,22 @@
+environment: staging
+namespace: staging
+
+movieService:
+  replicaCount: 2
+  image:
+    repository: vn4bit/movie-service
+    tag: staging
+
+castService:
+  replicaCount: 2
+  image:
+    repository: vn4bit/cast-service
+    tag: staging
+
+nginx:
+  replicaCount: 2
+  service:
+    type: LoadBalancer
+
+ingress:
+  host: microservice-staging.local

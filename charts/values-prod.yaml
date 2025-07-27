@@ -1,0 +1,30 @@
+environment: prod
+namespace: prod
+
+movieService:
+  replicaCount: 3
+  image:
+    repository: vn4bit/movie-service
+    tag: latest
+
+castService:
+  replicaCount: 3
+  image:
+    repository: vn4bit/cast-service
+    tag: latest
+
+nginx:
+  replicaCount: 3
+  service:
+    type: LoadBalancer
+
+ingress:
+  host: microservice-prod.local
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi

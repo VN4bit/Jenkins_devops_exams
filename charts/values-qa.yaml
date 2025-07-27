@@ -1,0 +1,22 @@
+environment: qa
+namespace: qa
+
+movieService:
+  replicaCount: 2
+  image:
+    repository: vn4bit/movie-service
+    tag: qa
+
+castService:
+  replicaCount: 2
+  image:
+    repository: vn4bit/cast-service
+    tag: qa
+
+nginx:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+
+ingress:
+  host: microservice-qa.local

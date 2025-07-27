@@ -1,0 +1,22 @@
+environment: dev
+namespace: dev
+
+movieService:
+  replicaCount: 1
+  image:
+    repository: vn4bit/movie-service
+    tag: dev
+
+castService:
+  replicaCount: 1
+  image:
+    repository: vn4bit/cast-service
+    tag: dev
+
+nginx:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+
+ingress:
+  host: microservice-dev.local

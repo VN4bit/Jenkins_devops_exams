@@ -1,6 +1,6 @@
 apiVersion: v2
-name: fastapiapp
-description: A Helm chart for Kubernetes
+name: microservice-app
+description: A Helm chart for FastAPI Microservices
 
 # A chart can be either an 'application' or a 'library' chart.
 #
