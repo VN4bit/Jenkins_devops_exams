@@ -1,0 +1,77 @@
+environment: qa
+namespace: qa
+
+# Main application deployment configuration
+replicaCount: 2
+
+image:
+  repository: vn4bit/movie-service  # Default to movie service
+  tag: qa
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  nodePort: 30001
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+movieService:
+  replicaCount: 2
+  image:
+    repository: vn4bit/movie-service
+    tag: qa
+
+castService:
+  replicaCount: 2
+  image:
+    repository: vn4bit/cast-service
+    tag: qa
+
+nginx:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: microservice-qa.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

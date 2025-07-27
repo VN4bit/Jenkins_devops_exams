@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: movie-service
+    environment: {{ .Values.environment }}
+spec:
+  replicas: {{ .Values.movieService.replicaCount }}
+  selector:
+    matchLabels:
+      app: movie-service
+  template:
+    metadata:
+      labels:
+        app: movie-service
+    spec:
+      containers:
+      - name: movie-service
+        image: "{{ .Values.movieService.image.repository }}:{{ .Values.movieService.image.tag }}"
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URI
+          value: "postgresql://movie_db_username:movie_db_password@movie-db/movie_db_{{ .Values.environment }}"
+        - name: CAST_SERVICE_HOST_URL
+          value: "http://cast-service:8000/api/v1/casts/"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/movies/docs
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/movies/docs
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movie-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: movie-service
+  ports:
+  - port: 8000
+    targetPort: 8000
