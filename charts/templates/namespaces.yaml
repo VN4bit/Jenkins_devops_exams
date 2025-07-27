@@ -1,27 +1,10 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: dev
+  name: {{ .Values.namespace }}
   labels:
-    environment: dev
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: qa
-  labels:
-    environment: qa
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: staging
-  labels:
-    environment: staging
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: prod
-  labels:
-    environment: prod
+    environment: {{ .Values.environment }}
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Values.namespace }}
