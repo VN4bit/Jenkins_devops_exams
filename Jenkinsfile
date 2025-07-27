@@ -14,11 +14,28 @@ pipeline {
             steps {
                 checkout scm
                 script {
+                    // Get current branch name more reliably
+                    env.BRANCH_NAME = env.BRANCH_NAME ?: sh(
+                        script: "git rev-parse --abbrev-ref HEAD",
+                        returnStdout: true
+                    ).trim()
+                    
                     env.GIT_COMMIT_SHORT = sh(
                         script: "git rev-parse --short HEAD",
                         returnStdout: true
                     ).trim()
-                    env.BUILD_TAG = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                    
+                    // Ensure we have valid values, fallback to defaults if needed
+                    def branchName = env.BRANCH_NAME ?: 'main'
+                    def buildNumber = env.BUILD_NUMBER ?: '1'
+                    def commitShort = env.GIT_COMMIT_SHORT ?: 'unknown'
+                    
+                    env.BUILD_TAG = "${branchName}-${buildNumber}-${commitShort}"
+                    
+                    echo "Branch: ${branchName}"
+                    echo "Build Number: ${buildNumber}"  
+                    echo "Commit: ${commitShort}"
+                    echo "Build Tag: ${env.BUILD_TAG}"
                 }
             }
         }
