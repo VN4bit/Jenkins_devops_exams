@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: vn4bit/movie-service  # Default to movie service
-  tag: HEAD-14-538d794
+  tag: HEAD-26-d6d05a9
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -70,13 +70,13 @@ movieService:
   replicaCount: 1
   image:
     repository: vn4bit/movie-service
-    tag: HEAD-14-538d794
+    tag: HEAD-26-d6d05a9
 
 castService:
   replicaCount: 1
   image:
     repository: vn4bit/cast-service
-    tag: HEAD-14-538d794
+    tag: HEAD-26-d6d05a9
 
 nginx:
   replicaCount: 1
@@ -95,3 +95,11 @@ ingress:
         - path: /
           pathType: Prefix
   tls: []
+
+# Database configuration
+database:
+  uri: "postgresql://movie_db_username:movie_db_password@movie-db/movie_db_dev"
+
+# Service URLs
+services:
+  castServiceUrl: "http://cast-service:8000/api/v1/casts/"

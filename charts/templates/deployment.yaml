@@ -37,13 +37,18 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
+          env:
+            - name: DATABASE_URI
+              value: "{{ .Values.database.uri }}"
+            - name: CAST_SERVICE_HOST_URL
+              value: "{{ .Values.services.castServiceUrl }}"
           livenessProbe:
             httpGet:
-              path: /api/v1/checkapi
+              path: /api/v1/movies/
               port: http
           readinessProbe:
             httpGet:
-              path: /api/v1/checkapi
+              path: /api/v1/movies/
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

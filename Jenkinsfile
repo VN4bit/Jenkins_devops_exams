@@ -102,7 +102,7 @@ pipeline {
                 script {
                     sh """
                         # Update values for dev environment  
-                        sed -i 's|tag: dev|tag: ${BUILD_TAG}|g' charts/values-dev.yaml
+                        sed -i 's|tag: HEAD-[0-9]*-[a-f0-9]*|tag: ${BUILD_TAG}|g' charts/values-dev.yaml
                         
                         # Only clean up the target namespace (dev) that might conflict
                         TARGET_NS="dev"
@@ -151,7 +151,7 @@ pipeline {
                 script {
                     sh """
                         # Update values for QA environment
-                        sed -i 's|tag: qa|tag: ${BUILD_TAG}|g' charts/values-qa.yaml
+                        sed -i 's|tag: HEAD-[0-9]*-[a-f0-9]*|tag: ${BUILD_TAG}|g' charts/values-qa.yaml
                         
                         # Only clean up the target namespace (qa) that might conflict
                         TARGET_NS="qa"
@@ -200,7 +200,7 @@ pipeline {
                 script {
                     sh """
                         # Update values for staging environment
-                        sed -i 's|tag: staging|tag: ${BUILD_TAG}|g' charts/values-staging.yaml
+                        sed -i 's|tag: HEAD-[0-9]*-[a-f0-9]*|tag: ${BUILD_TAG}|g' charts/values-staging.yaml
                         
                         # Only clean up the target namespace (staging) that might conflict
                         TARGET_NS="staging"
