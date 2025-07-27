@@ -30,9 +30,22 @@ pipeline {
                         dir('movie-service') {
                             sh '''
                                 echo "Building Movie Service..."
-                                # Run tests if test files exist
-                                if [ -f "requirements.txt" ]; then
-                                    pip install -r requirements.txt
+                                # Check if Python and pip are available
+                                if command -v python3 >/dev/null 2>&1; then
+                                    echo "Python3 found"
+                                    # Install pip if not available
+                                    if ! command -v pip3 >/dev/null 2>&1; then
+                                        echo "Installing pip3..."
+                                        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+                                        python3 get-pip.py --user
+                                        export PATH=$PATH:~/.local/bin
+                                    fi
+                                    # Run tests if test files exist
+                                    if [ -f "requirements.txt" ]; then
+                                        pip3 install -r requirements.txt --user
+                                    fi
+                                else
+                                    echo "Python3 not found, skipping dependency installation"
                                 fi
                                 # Add actual test commands here
                                 echo "Movie service tests passed"
@@ -45,9 +58,22 @@ pipeline {
                         dir('cast-service') {
                             sh '''
                                 echo "Building Cast Service..."
-                                # Run tests if test files exist
-                                if [ -f "requirements.txt" ]; then
-                                    pip install -r requirements.txt
+                                # Check if Python and pip are available
+                                if command -v python3 >/dev/null 2>&1; then
+                                    echo "Python3 found"
+                                    # Install pip if not available
+                                    if ! command -v pip3 >/dev/null 2>&1; then
+                                        echo "Installing pip3..."
+                                        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+                                        python3 get-pip.py --user
+                                        export PATH=$PATH:~/.local/bin
+                                    fi
+                                    # Run tests if test files exist
+                                    if [ -f "requirements.txt" ]; then
+                                        pip3 install -r requirements.txt --user
+                                    fi
+                                else
+                                    echo "Python3 not found, skipping dependency installation"
                                 fi
                                 # Add actual test commands here
                                 echo "Cast service tests passed"
