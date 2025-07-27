@@ -46,7 +46,7 @@ pipeline {
                     steps {
                         script {
                             dir('movie-service') {
-                                def movieImage = docker.build("${MOVIE_SERVICE_IMAGE}:${BUILD_TAG}", "--no-cache .")
+                                def movieImage = docker.build("${MOVIE_SERVICE_IMAGE}:${BUILD_TAG}")
                                 env.MOVIE_IMAGE_TAG = BUILD_TAG
                             }
                         }
@@ -56,7 +56,7 @@ pipeline {
                     steps {
                         script {
                             dir('cast-service') {
-                                def castImage = docker.build("${CAST_SERVICE_IMAGE}:${BUILD_TAG}", "--no-cache .")
+                                def castImage = docker.build("${CAST_SERVICE_IMAGE}:${BUILD_TAG}")
                                 env.CAST_IMAGE_TAG = BUILD_TAG
                             }
                         }
