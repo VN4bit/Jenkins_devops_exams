@@ -30,12 +30,6 @@ pipeline {
                         dir('movie-service') {
                             sh '''
                                 echo "Building Movie Service..."
-                                # Install build dependencies if not available
-                                if command -v apt-get >/dev/null 2>&1; then
-                                    echo "Installing build dependencies..."
-                                    sudo apt-get update -qq
-                                    sudo apt-get install -y build-essential python3-dev libpq-dev
-                                fi
                                 
                                 # Check if Python and pip are available
                                 if command -v python3 >/dev/null 2>&1; then
@@ -49,7 +43,8 @@ pipeline {
                                     fi
                                     # Run tests if test files exist
                                     if [ -f "requirements.txt" ]; then
-                                        pip3 install -r requirements.txt --user
+                                        echo "Installing Python dependencies (using binary wheels when possible)..."
+                                        pip3 install -r requirements.txt --user --prefer-binary --no-build-isolation
                                     fi
                                 else
                                     echo "Python3 not found, skipping dependency installation"
@@ -65,12 +60,6 @@ pipeline {
                         dir('cast-service') {
                             sh '''
                                 echo "Building Cast Service..."
-                                # Install build dependencies if not available
-                                if command -v apt-get >/dev/null 2>&1; then
-                                    echo "Installing build dependencies..."
-                                    sudo apt-get update -qq
-                                    sudo apt-get install -y build-essential python3-dev libpq-dev
-                                fi
                                 
                                 # Check if Python and pip are available
                                 if command -v python3 >/dev/null 2>&1; then
@@ -84,7 +73,8 @@ pipeline {
                                     fi
                                     # Run tests if test files exist
                                     if [ -f "requirements.txt" ]; then
-                                        pip3 install -r requirements.txt --user
+                                        echo "Installing Python dependencies (using binary wheels when possible)..."
+                                        pip3 install -r requirements.txt --user --prefer-binary --no-build-isolation
                                     fi
                                 else
                                     echo "Python3 not found, skipping dependency installation"
