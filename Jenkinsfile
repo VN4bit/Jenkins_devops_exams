@@ -87,24 +87,33 @@ pipeline {
                         # Update values for dev environment  
                         sed -i 's|tag: dev|tag: ${BUILD_TAG}|g' charts/values-dev.yaml
                         
-                        # Clean up any existing non-Helm managed namespaces that might conflict
-                        for ns in dev qa staging prod; do
-                            if kubectl get namespace \$ns >/dev/null 2>&1; then
-                                echo "Checking namespace \$ns..."
-                                if ! kubectl get namespace \$ns -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                    echo "Namespace \$ns exists but not managed by Helm, deleting..."
-                                    kubectl delete namespace \$ns --ignore-not-found=true
-                                fi
+                        # Only clean up the target namespace (dev) that might conflict
+                        TARGET_NS="dev"
+                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                            echo "Checking namespace \$TARGET_NS..."
+                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
+                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
+                                
+                                # Wait for target namespace to be fully deleted with timeout
+                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
+                                for i in {1..60}; do
+                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                                        echo "Namespace \$TARGET_NS successfully deleted."
+                                        break
+                                    fi
+                                    if [ \$i -eq 60 ]; then
+                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
+                                        break
+                                    fi
+                                    sleep 2
+                                done
+                            else
+                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
                             fi
-                        done
-                        
-                        # Wait for all namespaces to be fully deleted
-                        for ns in dev qa staging prod; do
-                            while kubectl get namespace \$ns >/dev/null 2>&1; do
-                                echo "Waiting for namespace \$ns to be deleted..."
-                                sleep 2
-                            done
-                        done
+                        else
+                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
+                        fi
                         
                         # Deploy to dev namespace
                         helm upgrade --install microservice-dev ./charts \\
@@ -127,24 +136,33 @@ pipeline {
                         # Update values for QA environment
                         sed -i 's|tag: qa|tag: ${BUILD_TAG}|g' charts/values-qa.yaml
                         
-                        # Clean up any existing non-Helm managed namespaces that might conflict
-                        for ns in dev qa staging prod; do
-                            if kubectl get namespace \$ns >/dev/null 2>&1; then
-                                echo "Checking namespace \$ns..."
-                                if ! kubectl get namespace \$ns -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                    echo "Namespace \$ns exists but not managed by Helm, deleting..."
-                                    kubectl delete namespace \$ns --ignore-not-found=true
-                                fi
+                        # Only clean up the target namespace (qa) that might conflict
+                        TARGET_NS="qa"
+                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                            echo "Checking namespace \$TARGET_NS..."
+                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
+                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
+                                
+                                # Wait for target namespace to be fully deleted with timeout
+                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
+                                for i in {1..60}; do
+                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                                        echo "Namespace \$TARGET_NS successfully deleted."
+                                        break
+                                    fi
+                                    if [ \$i -eq 60 ]; then
+                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
+                                        break
+                                    fi
+                                    sleep 2
+                                done
+                            else
+                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
                             fi
-                        done
-                        
-                        # Wait for all namespaces to be fully deleted
-                        for ns in dev qa staging prod; do
-                            while kubectl get namespace \$ns >/dev/null 2>&1; do
-                                echo "Waiting for namespace \$ns to be deleted..."
-                                sleep 2
-                            done
-                        done
+                        else
+                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
+                        fi
                         
                         # Deploy to QA namespace
                         helm upgrade --install microservice-qa ./charts \\
@@ -167,24 +185,33 @@ pipeline {
                         # Update values for staging environment
                         sed -i 's|tag: staging|tag: ${BUILD_TAG}|g' charts/values-staging.yaml
                         
-                        # Clean up any existing non-Helm managed namespaces that might conflict
-                        for ns in dev qa staging prod; do
-                            if kubectl get namespace \$ns >/dev/null 2>&1; then
-                                echo "Checking namespace \$ns..."
-                                if ! kubectl get namespace \$ns -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                    echo "Namespace \$ns exists but not managed by Helm, deleting..."
-                                    kubectl delete namespace \$ns --ignore-not-found=true
-                                fi
+                        # Only clean up the target namespace (staging) that might conflict
+                        TARGET_NS="staging"
+                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                            echo "Checking namespace \$TARGET_NS..."
+                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
+                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
+                                
+                                # Wait for target namespace to be fully deleted with timeout
+                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
+                                for i in {1..60}; do
+                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                                        echo "Namespace \$TARGET_NS successfully deleted."
+                                        break
+                                    fi
+                                    if [ \$i -eq 60 ]; then
+                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
+                                        break
+                                    fi
+                                    sleep 2
+                                done
+                            else
+                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
                             fi
-                        done
-                        
-                        # Wait for all namespaces to be fully deleted
-                        for ns in dev qa staging prod; do
-                            while kubectl get namespace \$ns >/dev/null 2>&1; do
-                                echo "Waiting for namespace \$ns to be deleted..."
-                                sleep 2
-                            done
-                        done
+                        else
+                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
+                        fi
                         
                         # Deploy to staging namespace
                         helm upgrade --install microservice-staging ./charts \\
@@ -216,24 +243,33 @@ pipeline {
                         # Update values for production environment
                         sed -i 's|tag: latest|tag: latest|g' charts/values-prod.yaml
                         
-                        # Clean up any existing non-Helm managed namespaces that might conflict
-                        for ns in dev qa staging prod; do
-                            if kubectl get namespace \$ns >/dev/null 2>&1; then
-                                echo "Checking namespace \$ns..."
-                                if ! kubectl get namespace \$ns -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                    echo "Namespace \$ns exists but not managed by Helm, deleting..."
-                                    kubectl delete namespace \$ns --ignore-not-found=true
-                                fi
+                        # Only clean up the target namespace (prod) that might conflict
+                        TARGET_NS="prod"
+                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                            echo "Checking namespace \$TARGET_NS..."
+                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
+                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
+                                
+                                # Wait for target namespace to be fully deleted with timeout
+                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
+                                for i in {1..60}; do
+                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
+                                        echo "Namespace \$TARGET_NS successfully deleted."
+                                        break
+                                    fi
+                                    if [ \$i -eq 60 ]; then
+                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
+                                        break
+                                    fi
+                                    sleep 2
+                                done
+                            else
+                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
                             fi
-                        done
-                        
-                        # Wait for all namespaces to be fully deleted
-                        for ns in dev qa staging prod; do
-                            while kubectl get namespace \$ns >/dev/null 2>&1; do
-                                echo "Waiting for namespace \$ns to be deleted..."
-                                sleep 2
-                            done
-                        done
+                        else
+                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
+                        fi
                         
                         # Deploy to production namespace
                         helm upgrade --install microservice-prod ./charts \\
