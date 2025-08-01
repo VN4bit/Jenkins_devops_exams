@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: vn4bit/movie-service  # Default to movie service
-  tag: staging
+  tag: develop-latest
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -52,13 +52,13 @@ movieService:
   replicaCount: 2
   image:
     repository: vn4bit/movie-service
-    tag: staging
+    tag: develop-latest
 
 castService:
   replicaCount: 2
   image:
     repository: vn4bit/cast-service
-    tag: staging
+    tag: develop-latest
 
 nginx:
   replicaCount: 2
