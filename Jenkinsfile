@@ -97,6 +97,7 @@ pipeline {
             when {
                 not { branch 'master' }
                 not { branch 'main' }
+                not { branch 'develop' }
             }
             steps {
                 script {
