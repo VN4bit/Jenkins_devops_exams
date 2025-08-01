@@ -2,7 +2,7 @@ environment: staging
 namespace: staging
 
 # Main application deployment configuration
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: vn4bit/movie-service  # Default to movie service
@@ -39,7 +39,7 @@ resources: {}
 autoscaling:
   enabled: false
   minReplicas: 1
-  maxReplicas: 100
+  maxReplicas: 3
   targetCPUUtilizationPercentage: 80
 
 nodeSelector: {}
@@ -49,19 +49,19 @@ tolerations: []
 affinity: {}
 
 movieService:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: vn4bit/movie-service
     tag: develop-latest
 
 castService:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: vn4bit/cast-service
     tag: develop-latest
 
 nginx:
-  replicaCount: 2
+  replicaCount: 1
   service:
     type: LoadBalancer
 

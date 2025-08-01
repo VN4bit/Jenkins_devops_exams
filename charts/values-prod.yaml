@@ -2,7 +2,7 @@ environment: prod
 namespace: prod
 
 # Main application deployment configuration
-replicaCount: 3
+replicaCount: 1
 
 image:
   repository: vn4bit/movie-service  # Default to movie service
@@ -44,7 +44,7 @@ resources:
 
 autoscaling:
   enabled: false
-  minReplicas: 3
+  minReplicas: 1
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
 
@@ -55,19 +55,19 @@ tolerations: []
 affinity: {}
 
 movieService:
-  replicaCount: 3
+  replicaCount: 1
   image:
     repository: vn4bit/movie-service
     tag: latest
 
 castService:
-  replicaCount: 3
+  replicaCount: 1
   image:
     repository: vn4bit/cast-service
     tag: latest
 
 nginx:
-  replicaCount: 3
+  replicaCount: 1
   service:
     type: LoadBalancer
 
