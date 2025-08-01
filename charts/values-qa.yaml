@@ -75,3 +75,11 @@ ingress:
         - path: /
           pathType: Prefix
   tls: []
+
+# Database configuration
+database:
+  uri: "postgresql://movie_db_username:movie_db_password@movie-db/movie_db_qa"
+
+# Service URLs
+services:
+  castServiceUrl: "http://cast-service:8000/api/v1/casts/"
