@@ -24,6 +24,8 @@ spec:
         envFrom:
         - configMapRef:
             name: movie-db-config
+        resources:
+          {{- toYaml .Values.databases.movie.resources | nindent 10 }}
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data

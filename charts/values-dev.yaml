@@ -71,15 +71,36 @@ movieService:
   image:
     repository: vn4bit/movie-service
     tag: HEAD-26-d6d05a9
+  resources:
+    limits:
+      cpu: 300m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
 
 castService:
   replicaCount: 1
   image:
     repository: vn4bit/cast-service
     tag: HEAD-26-d6d05a9
+  resources:
+    limits:
+      cpu: 300m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
 
 nginx:
   replicaCount: 1
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 50m
+      memory: 32Mi
   service:
     type: ClusterIP
 

@@ -24,6 +24,8 @@ spec:
         env:
         - name: DATABASE_URI
           value: "postgresql://cast_db_username:cast_db_password@cast-db/cast_db_{{ .Values.environment }}"
+        resources:
+          {{- toYaml .Values.castService.resources | nindent 10 }}
         livenessProbe:
           httpGet:
             path: /api/v1/casts/docs

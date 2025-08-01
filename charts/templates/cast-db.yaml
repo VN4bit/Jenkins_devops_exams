@@ -24,6 +24,8 @@ spec:
         envFrom:
         - configMapRef:
             name: cast-db-config
+        resources:
+          {{- toYaml .Values.databases.cast.resources | nindent 10 }}
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
