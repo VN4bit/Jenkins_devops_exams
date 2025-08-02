@@ -61,12 +61,11 @@ pipeline {
                 not { branch 'main' }
                 branch 'develop'
             }
-            options {
-                timeout(time: 15, unit: 'MINUTES')
-            }
             steps {
                 script {
-                    deployToEnvironment('dev', 'charts/values-dev.yaml')
+                    timeout(time: env.STAGE_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                        deployToEnvironment('dev', 'charts/values-dev.yaml')
+                    }
                 }
             }
         }
@@ -75,12 +74,11 @@ pipeline {
             when {
                 branch 'develop'
             }
-            options {
-                timeout(time: 15, unit: 'MINUTES')
-            }
             steps {
                 script {
-                    deployToEnvironment('qa', 'charts/values-qa.yaml')
+                    timeout(time: env.STAGE_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                        deployToEnvironment('qa', 'charts/values-qa.yaml')
+                    }
                 }
             }
         }
@@ -89,12 +87,11 @@ pipeline {
             when {
                 branch 'develop'
             }
-            options {
-                timeout(time: 15, unit: 'MINUTES')
-            }
             steps {
                 script {
-                    deployToEnvironment('staging', 'charts/values-staging.yaml')
+                    timeout(time: env.STAGE_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                        deployToEnvironment('staging', 'charts/values-staging.yaml')
+                    }
                 }
             }
         }
@@ -106,16 +103,15 @@ pipeline {
                     branch 'main'
                 }
             }
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
             steps {
                 script {
-                    // Manual approval for production
-                    timeout(time: 15, unit: "MINUTES") {
-                        input message: 'Do you want to deploy to production?', ok: 'Deploy'
+                    timeout(time: env.PROD_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                        // Manual approval for production
+                        timeout(time: env.APPROVAL_TIMEOUT_MIN.toInteger(), unit: "MINUTES") {
+                            input message: 'Do you want to deploy to production?', ok: 'Deploy'
+                        }
+                        deployToEnvironment('prod', 'charts/values-prod.yaml')
                     }
-                    deployToEnvironment('prod', 'charts/values-prod.yaml')
                 }
             }
         }
@@ -127,12 +123,11 @@ pipeline {
                         not { branch 'master' }
                         not { branch 'main' }
                     }
-                    options {
-                        timeout(time: 5, unit: 'MINUTES')
-                    }
                     steps {
                         script {
-                            healthCheck('dev')
+                            timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                                healthCheck('dev')
+                            }
                         }
                     }
                 }
@@ -141,12 +136,11 @@ pipeline {
                         not { branch 'master' }
                         not { branch 'main' }
                     }
-                    options {
-                        timeout(time: 5, unit: 'MINUTES')
-                    }
                     steps {
                         script {
-                            healthCheck('qa')
+                            timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                                healthCheck('qa')
+                            }
                         }
                     }
                 }
@@ -155,12 +149,11 @@ pipeline {
                         not { branch 'master' }
                         not { branch 'main' }
                     }
-                    options {
-                        timeout(time: 5, unit: 'MINUTES')
-                    }
                     steps {
                         script {
-                            healthCheck('staging')
+                            timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                                healthCheck('staging')
+                            }
                         }
                     }
                 }
@@ -171,12 +164,11 @@ pipeline {
                             branch 'main'
                         }
                     }
-                    options {
-                        timeout(time: 5, unit: 'MINUTES')
-                    }
                     steps {
                         script {
-                            healthCheck('prod')
+                            timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES') {
+                                healthCheck('prod')
+                            }
                         }
                     }
                 }
