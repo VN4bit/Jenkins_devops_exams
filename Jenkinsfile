@@ -9,7 +9,7 @@ pipeline {
         CAST_SERVICE_IMAGE = "${DOCKER_REGISTRY}/${DOCKER_ID}/cast-service"
         KUBECONFIG = credentials('config')
         
-        // Deployment timeouts (Helm needs string format with unit; e.g., "10m" for 10 minutes)
+        // Deployment timeouts (Helm needs string format with unit s, m, h; e.g., "10m" for 10 minutes)
         HELM_TIMEOUT = "10m"
         
         // Timeout constants as environment variables
@@ -62,7 +62,7 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: Integer.parseInt(env.STAGE_TIMEOUT_MIN), unit: 'MINUTES')
+                timeout(time: env.STAGE_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
             }
             steps {
                 script {
@@ -76,7 +76,7 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: Integer.parseInt(env.STAGE_TIMEOUT_MIN), unit: 'MINUTES')
+                timeout(time: env.STAGE_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
             }
             steps {
                 script {
@@ -90,7 +90,7 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: Integer.parseInt(env.STAGE_TIMEOUT_MIN), unit: 'MINUTES')
+                timeout(time: env.STAGE_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
             }
             steps {
                 script {
@@ -107,12 +107,12 @@ pipeline {
                 }
             }
             options {
-                timeout(time: Integer.parseInt(env.PROD_TIMEOUT_MIN), unit: 'MINUTES')
+                timeout(time: env.PROD_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
             }
             steps {
                 script {
                     // Manual approval for production
-                    timeout(time: Integer.parseInt(env.APPROVAL_TIMEOUT_MIN), unit: "MINUTES") {
+                    timeout(time: env.APPROVAL_TIMEOUT_MIN.toInteger(), unit: "MINUTES") {
                         input message: 'Do you want to deploy to production?', ok: 'Deploy'
                     }
                     deployToEnvironment('prod', 'charts/values-prod.yaml')
@@ -128,7 +128,7 @@ pipeline {
                         not { branch 'main' }
                     }
                     options {
-                        timeout(time: Integer.parseInt(env.HEALTH_CHECK_TIMEOUT_MIN), unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
                     }
                     steps {
                         script {
@@ -142,7 +142,7 @@ pipeline {
                         not { branch 'main' }
                     }
                     options {
-                        timeout(time: Integer.parseInt(env.HEALTH_CHECK_TIMEOUT_MIN), unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
                     }
                     steps {
                         script {
@@ -156,7 +156,7 @@ pipeline {
                         not { branch 'main' }
                     }
                     options {
-                        timeout(time: Integer.parseInt(env.HEALTH_CHECK_TIMEOUT_MIN), unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
                     }
                     steps {
                         script {
@@ -172,7 +172,7 @@ pipeline {
                         }
                     }
                     options {
-                        timeout(time: Integer.parseInt(env.HEALTH_CHECK_TIMEOUT_MIN), unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN.toInteger(), unit: 'MINUTES')
                     }
                     steps {
                         script {
