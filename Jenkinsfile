@@ -422,7 +422,7 @@ def checkServiceHealth(String environment) {
                     SERVICE_TYPE="movie-service"
                     ;;
                 *cast-service*)
-                    ENDPOINT="http://localhost:8000/api/v1/casts"
+                    ENDPOINT="http://localhost:8000/api/v1/casts/docs"
                     SERVICE_TYPE="cast-service"
                     ;;
                 *)
@@ -499,7 +499,7 @@ def sendNotification(String status) {
     // Placeholder for notification logic
     echo "Sending ${status} notification for build ${env.BUILD_TAG}"
     
-    mail to: "vn.v.neumann@gmail.com",
-         subject: "${env.JOB_NAME} - Build # ${env.BUILD_ID} has ${status}",
-         body: "For more info on the pipeline ${status}, check out the console output at ${env.BUILD_URL}"
+    //mail to: "email.com",
+    //     subject: "${env.JOB_NAME} - Build # ${env.BUILD_ID} has ${status}",
+    //     body: "For more info on the pipeline ${status}, check out the console output at ${env.BUILD_URL}"
 }
