@@ -42,14 +42,22 @@ spec:
               value: "{{ .Values.database.uri }}"
             - name: CAST_SERVICE_HOST_URL
               value: "{{ .Values.services.castServiceUrl }}"
-          livenessProbe:
-            httpGet:
-              path: /api/v1/movies/
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /api/v1/movies/
-              port: http
+          # livenessProbe:
+          #   httpGet:
+          #     path: /api/v1/movies/
+          #     port: http
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          #   timeoutSeconds: 5
+          #   failureThreshold: 3
+          # readinessProbe:
+          #   httpGet:
+          #     path: /api/v1/movies/
+          #     port: http
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 5
+          #   timeoutSeconds: 3
+          #   failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
