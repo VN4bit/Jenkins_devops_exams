@@ -163,7 +163,7 @@ pipeline {
         
         stage('Deploy to QA') {
             when {
-                not { branch 'develop' }
+                branch 'develop'
             }
             options {
                 timeout(time: 15, unit: 'MINUTES')
@@ -216,7 +216,7 @@ pipeline {
         
         stage('Deploy to Staging') {
             when {
-                branch 'develop'
+                not { branch 'develop' }
             }
             options {
                 timeout(time: 15, unit: 'MINUTES')
