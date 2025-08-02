@@ -363,7 +363,7 @@ def deployWithHelm(String environment, String valuesFile) {
         
         # Manual verification with timeout
         echo "Verifying deployment..."
-        for i in {1..20}; do
+        for i in \$(seq 1 20); do
             READY_PODS=\$(kubectl get pods -n ${environment} --no-headers | grep -c "Running" || echo "0")
             TOTAL_PODS=\$(kubectl get pods -n ${environment} --no-headers | wc -l || echo "0")
             
@@ -415,20 +415,43 @@ def checkServiceHealth(String environment) {
         for pod in \$PODS; do
             echo "Checking connectivity to \$pod..."
             
-            # Determine service type and endpoint
-            if [[ "\$pod" == *"movie-service"* ]]; then
-                ENDPOINT="http://localhost:8000/api/v1/movies"
-                SERVICE_TYPE="movie-service"
-            elif [[ "\$pod" == *"cast-service"* ]]; then
-                ENDPOINT="http://localhost:8000/api/v1/casts"
-                SERVICE_TYPE="cast-service"
-            else
-                echo "Unknown service type for pod \$pod, skipping..."
-                continue
-            fi
+            # Determine service type and endpoint using case statement
+            case "\$pod" in
+                *movie-service*)
+                    ENDPOINT="http://localhost:8000/api/v1/movies"
+                    SERVICE_TYPE="movie-service"
+                    ;;
+                *cast-service*)
+                    ENDPOINT="http://localhost:8000/api/v1/casts"
+                    SERVICE_TYPE="cast-service"
+                    ;;
+                *)
+                    echo "Unknown service type for pod \$pod, skipping..."
+                    continue
+                    ;;
+            esac
             
             # Test HTTP connectivity using Python
-            if ! testServiceEndpoint "\$pod" "\$ENDPOINT" "\$SERVICE_TYPE" "${environment}"; then
+            echo "Testing \$SERVICE_TYPE endpoint: \$ENDPOINT"
+            if kubectl exec \$pod -n ${environment} -- python -c "
+import urllib.request
+import sys
+try:
+    response = urllib.request.urlopen('\$ENDPOINT')
+    status_code = response.getcode()
+    if status_code == 200:
+        print('PASS - \$SERVICE_TYPE health check PASSED - HTTP Status: ' + str(status_code))
+        sys.exit(0)
+    else:
+        print('WARN - \$SERVICE_TYPE health check WARNING - HTTP Status: ' + str(status_code))
+        sys.exit(0)
+except Exception as e:
+    print('FAIL - \$SERVICE_TYPE health check FAILED - Error: ' + str(e))
+    sys.exit(1)
+" 2>/dev/null; then
+                echo "Health check successful for \$pod"
+            else
+                echo "Health check failed for \$pod - this might indicate an issue"
                 HEALTH_CHECK_PASSED=false
             fi
         done
@@ -442,38 +465,6 @@ def checkServiceHealth(String environment) {
     """
     
     return currentBuild.currentResult != 'FAILURE'
-}
-
-def testServiceEndpoint(String podName, String endpoint, String serviceType, String environment) {
-    def testResult = sh(
-        script: """
-            kubectl exec ${podName} -n ${environment} -- python -c "
-import urllib.request
-import sys
-try:
-    response = urllib.request.urlopen('${endpoint}')
-    status_code = response.getcode()
-    if status_code == 200:
-        print('PASS - ${serviceType} health check PASSED - HTTP Status: ' + str(status_code))
-        sys.exit(0)
-    else:
-        print('WARN - ${serviceType} health check WARNING - HTTP Status: ' + str(status_code))
-        sys.exit(0)
-except Exception as e:
-    print('FAIL - ${serviceType} health check FAILED - Error: ' + str(e))
-    sys.exit(1)
-" 2>/dev/null
-        """,
-        returnStatus: true
-    )
-    
-    if (testResult == 0) {
-        echo "Health check successful for ${podName}"
-        return true
-    } else {
-        echo "Health check failed for ${podName} - this might indicate an issue"
-        return false
-    }
 }
 
 def showPodLogs(String environment) {
@@ -508,9 +499,7 @@ def sendNotification(String status) {
     // Placeholder for notification logic
     echo "Sending ${status} notification for build ${env.BUILD_TAG}"
     
-    // Example: Send to Slack, email, etc.
-    // slackSend(
-    //     color: (status == 'success') ? 'good' : 'danger',
-    //     message: "${status.toUpperCase()}: Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME})"
-    // )
+    mail to: "vn.v.neumann@gmail.com",
+         subject: "${env.JOB_NAME} - Build # ${env.BUILD_ID} has ${status}",
+         body: "For more info on the pipeline ${status}, check out the console output at ${env.BUILD_URL}"
 }
