@@ -9,15 +9,15 @@ pipeline {
         CAST_SERVICE_IMAGE = "${DOCKER_REGISTRY}/${DOCKER_ID}/cast-service"
         KUBECONFIG = credentials('config')
         
-        // Deployment timeouts (Helm needs string format with unit)
+        // Deployment timeouts (Helm needs string format with unit; e.g., "10m" for 10 minutes)
         HELM_TIMEOUT = "10m"
+        
+        // Timeout constants as environment variables
+        STAGE_TIMEOUT_MIN = "15"
+        PROD_TIMEOUT_MIN = "20"
+        APPROVAL_TIMEOUT_MIN = "15"
+        HEALTH_CHECK_TIMEOUT_MIN = "5"
     }
-    
-    // Define timeout constants as pipeline-level variables
-    def static final int STAGE_TIMEOUT_MIN = 15
-    def static final int PROD_TIMEOUT_MIN = 20
-    def static final int APPROVAL_TIMEOUT_MIN = 15
-    def static final int HEALTH_CHECK_TIMEOUT_MIN = 5
     
     stages {
         stage('Checkout') {
@@ -62,7 +62,7 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: STAGE_TIMEOUT_MIN, unit: 'MINUTES')
+                timeout(time: env.STAGE_TIMEOUT_MIN as Integer, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -76,7 +76,7 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: STAGE_TIMEOUT_MIN, unit: 'MINUTES')
+                timeout(time: env.STAGE_TIMEOUT_MIN as Integer, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -90,7 +90,7 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: STAGE_TIMEOUT_MIN, unit: 'MINUTES')
+                timeout(time: env.STAGE_TIMEOUT_MIN as Integer, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -107,12 +107,12 @@ pipeline {
                 }
             }
             options {
-                timeout(time: PROD_TIMEOUT_MIN, unit: 'MINUTES')
+                timeout(time: env.PROD_TIMEOUT_MIN as Integer, unit: 'MINUTES')
             }
             steps {
                 script {
                     // Manual approval for production
-                    timeout(time: APPROVAL_TIMEOUT_MIN, unit: "MINUTES") {
+                    timeout(time: env.APPROVAL_TIMEOUT_MIN as Integer, unit: "MINUTES") {
                         input message: 'Do you want to deploy to production?', ok: 'Deploy'
                     }
                     deployToEnvironment('prod', 'charts/values-prod.yaml')
@@ -128,7 +128,7 @@ pipeline {
                         not { branch 'main' }
                     }
                     options {
-                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN as Integer, unit: 'MINUTES')
                     }
                     steps {
                         script {
@@ -142,7 +142,7 @@ pipeline {
                         not { branch 'main' }
                     }
                     options {
-                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN as Integer, unit: 'MINUTES')
                     }
                     steps {
                         script {
@@ -156,7 +156,7 @@ pipeline {
                         not { branch 'main' }
                     }
                     options {
-                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN as Integer, unit: 'MINUTES')
                     }
                     steps {
                         script {
@@ -172,7 +172,7 @@ pipeline {
                         }
                     }
                     options {
-                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
+                        timeout(time: env.HEALTH_CHECK_TIMEOUT_MIN as Integer, unit: 'MINUTES')
                     }
                     steps {
                         script {
