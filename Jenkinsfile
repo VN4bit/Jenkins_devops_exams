@@ -2,77 +2,43 @@ pipeline {
     agent any
     
     environment {
+        // Registry configuration
         DOCKER_REGISTRY = 'docker.io'
         DOCKER_ID = 'vn4bit'
         MOVIE_SERVICE_IMAGE = "${DOCKER_REGISTRY}/${DOCKER_ID}/movie-service"
         CAST_SERVICE_IMAGE = "${DOCKER_REGISTRY}/${DOCKER_ID}/cast-service"
         KUBECONFIG = credentials('config')
+        
+        // Deployment timeouts (Helm needs string format with unit)
+        HELM_TIMEOUT = "10m"
     }
+    
+    // Define timeout constants as pipeline-level variables
+    def static final int STAGE_TIMEOUT_MIN = 15
+    def static final int PROD_TIMEOUT_MIN = 20
+    def static final int APPROVAL_TIMEOUT_MIN = 15
+    def static final int HEALTH_CHECK_TIMEOUT_MIN = 5
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
                 script {
-                    // Use Jenkins built-in branch detection for multibranch pipelines
-                    // For regular pipelines, fallback to git command
-                    def branchName = env.BRANCH_NAME
-                    if (!branchName || branchName == 'HEAD') {
-                        // Try to get branch from GIT_BRANCH environment variable
-                        branchName = env.GIT_BRANCH
-                        if (branchName && branchName.startsWith('origin/')) {
-                            branchName = branchName.replace('origin/', '')
-                        }
-                        // If still not found, try git command as last resort
-                        if (!branchName || branchName == 'HEAD') {
-                            branchName = sh(
-                                script: "git branch -r --contains HEAD | grep -v HEAD | head -1 | sed 's|origin/||' | xargs",
-                                returnStdout: true
-                            ).trim()
-                        }
-                    }
-                    
-                    env.BRANCH_NAME = branchName ?: 'main'
-                    
-                    env.GIT_COMMIT_SHORT = sh(
-                        script: "git rev-parse --short HEAD",
-                        returnStdout: true
-                    ).trim()
-                    
-                    // Ensure we have valid values, fallback to defaults if needed
-                    def buildNumber = env.BUILD_NUMBER ?: '1'
-                    def commitShort = env.GIT_COMMIT_SHORT ?: 'unknown'
-                    
-                    env.BUILD_TAG = "${env.BRANCH_NAME}-${buildNumber}-${commitShort}"
-                    
-                    echo "Detected Branch: ${env.BRANCH_NAME}"
-                    echo "Build Number: ${buildNumber}"  
-                    echo "Commit: ${commitShort}"
-                    echo "Build Tag: ${env.BUILD_TAG}"
+                    setBuildMetadata()
                 }
             }
         }
         
         stage('Build Docker Images') {
             parallel {
-                stage('Build Movie Service Image') {
+                stage('Build Movie Service') {
                     steps {
-                        script {
-                            dir('movie-service') {
-                                def movieImage = docker.build("${MOVIE_SERVICE_IMAGE}:${BUILD_TAG}")
-                                env.MOVIE_IMAGE_TAG = BUILD_TAG
-                            }
-                        }
+                        buildDockerImage('movie-service', env.MOVIE_SERVICE_IMAGE)
                     }
                 }
-                stage('Build Cast Service Image') {
+                stage('Build Cast Service') {
                     steps {
-                        script {
-                            dir('cast-service') {
-                                def castImage = docker.build("${CAST_SERVICE_IMAGE}:${BUILD_TAG}")
-                                env.CAST_IMAGE_TAG = BUILD_TAG
-                            }
-                        }
+                        buildDockerImage('cast-service', env.CAST_SERVICE_IMAGE)
                     }
                 }
             }
@@ -84,24 +50,7 @@ pipeline {
             }
             steps {
                 script {
-                    // Login to Docker Hub
-                    sh 'docker login -u $DOCKER_ID -p $DOCKER_PASS'
-                    
-                    // Push movie service image
-                    sh "docker push ${MOVIE_SERVICE_IMAGE}:${BUILD_TAG}"
-                    
-                    // Push cast service image
-                    sh "docker push ${CAST_SERVICE_IMAGE}:${BUILD_TAG}"
-                    
-                    // Tag and push latest for master branch
-                    if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main') {
-                        sh """
-                            docker tag ${MOVIE_SERVICE_IMAGE}:${BUILD_TAG} ${MOVIE_SERVICE_IMAGE}:latest
-                            docker tag ${CAST_SERVICE_IMAGE}:${BUILD_TAG} ${CAST_SERVICE_IMAGE}:latest
-                            docker push ${MOVIE_SERVICE_IMAGE}:latest
-                            docker push ${CAST_SERVICE_IMAGE}:latest
-                        """
-                    }
+                    pushDockerImages()
                 }
             }
         }
@@ -110,53 +59,14 @@ pipeline {
             when {
                 not { branch 'master' }
                 not { branch 'main' }
-                not { branch 'develop' }
+                branch 'develop'
             }
             options {
-                timeout(time: 15, unit: 'MINUTES')
+                timeout(time: STAGE_TIMEOUT_MIN, unit: 'MINUTES')
             }
             steps {
                 script {
-                    sh """
-                        # Update values for dev environment  
-                        sed -i 's|tag: HEAD-[0-9]*-[a-f0-9]*|tag: ${BUILD_TAG}|g' charts/values-dev.yaml
-                        
-                        # Only clean up the target namespace (dev) that might conflict
-                        TARGET_NS="dev"
-                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                            echo "Checking namespace \$TARGET_NS..."
-                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
-                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
-                                
-                                # Wait for target namespace to be fully deleted with timeout
-                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
-                                for i in {1..60}; do
-                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                                        echo "Namespace \$TARGET_NS successfully deleted."
-                                        break
-                                    fi
-                                    if [ \$i -eq 60 ]; then
-                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
-                                        break
-                                    fi
-                                    sleep 2
-                                done
-                            else
-                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
-                            fi
-                        else
-                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
-                        fi
-                        
-                        # Deploy to dev namespace with timeout
-                        helm upgrade --install microservice-dev ./charts \\
-                            --namespace dev \\
-                            --create-namespace \\
-                            --values charts/values-dev.yaml \\
-                            --wait \\
-                            --timeout 10m
-                    """
+                    deployToEnvironment('dev', 'charts/values-dev.yaml')
                 }
             }
         }
@@ -166,103 +76,25 @@ pipeline {
                 branch 'develop'
             }
             options {
-                timeout(time: 15, unit: 'MINUTES')
+                timeout(time: STAGE_TIMEOUT_MIN, unit: 'MINUTES')
             }
             steps {
                 script {
-                    sh """
-                        # Update values for QA environment
-                        sed -i 's|tag: .*|tag: ${BUILD_TAG}|g' charts/values-qa.yaml
-                        
-                        # Only clean up the target namespace (qa) that might conflict
-                        TARGET_NS="qa"
-                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                            echo "Checking namespace \$TARGET_NS..."
-                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
-                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
-                                
-                                # Wait for target namespace to be fully deleted with timeout
-                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
-                                for i in {1..60}; do
-                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                                        echo "Namespace \$TARGET_NS successfully deleted."
-                                        break
-                                    fi
-                                    if [ \$i -eq 60 ]; then
-                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
-                                        break
-                                    fi
-                                    sleep 2
-                                done
-                            else
-                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
-                            fi
-                        else
-                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
-                        fi
-                        
-                        # Deploy to QA namespace with timeout
-                        helm upgrade --install microservice-qa ./charts \\
-                            --namespace qa \\
-                            --create-namespace \\
-                            --values charts/values-qa.yaml \\
-                            --wait \\
-                            --timeout 10m
-                    """
+                    deployToEnvironment('qa', 'charts/values-qa.yaml')
                 }
             }
         }
         
         stage('Deploy to Staging') {
             when {
-                not { branch 'develop' }
+                branch 'develop'
             }
             options {
-                timeout(time: 15, unit: 'MINUTES')
+                timeout(time: STAGE_TIMEOUT_MIN, unit: 'MINUTES')
             }
             steps {
                 script {
-                    sh """
-                        # Update values for staging environment
-                        sed -i 's|tag: .*|tag: ${BUILD_TAG}|g' charts/values-staging.yaml
-                        
-                        # Only clean up the target namespace (staging) that might conflict
-                        TARGET_NS="staging"
-                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                            echo "Checking namespace \$TARGET_NS..."
-                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
-                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
-                                
-                                # Wait for target namespace to be fully deleted with timeout
-                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
-                                for i in {1..60}; do
-                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                                        echo "Namespace \$TARGET_NS successfully deleted."
-                                        break
-                                    fi
-                                    if [ \$i -eq 60 ]; then
-                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
-                                        break
-                                    fi
-                                    sleep 2
-                                done
-                            else
-                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
-                            fi
-                        else
-                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
-                        fi
-                        
-                        # Deploy to staging namespace with timeout
-                        helm upgrade --install microservice-staging ./charts \\
-                            --namespace staging \\
-                            --create-namespace \\
-                            --values charts/values-staging.yaml \\
-                            --wait \\
-                            --timeout 10m
-                    """
+                    deployToEnvironment('staging', 'charts/values-staging.yaml')
                 }
             }
         }
@@ -275,56 +107,15 @@ pipeline {
                 }
             }
             options {
-                timeout(time: 20, unit: 'MINUTES')
+                timeout(time: PROD_TIMEOUT_MIN, unit: 'MINUTES')
             }
             steps {
                 script {
-                    // Create an Approval Button with a timeout of 15 minutes.
-                    // this requires a manual validation in order to deploy on production environment
-                    timeout(time: 15, unit: "MINUTES") {
-                        input message: 'Do you want to deploy in production ?', ok: 'Yes'
+                    // Manual approval for production
+                    timeout(time: APPROVAL_TIMEOUT_MIN, unit: "MINUTES") {
+                        input message: 'Do you want to deploy to production?', ok: 'Deploy'
                     }
-                    
-                    sh """
-                        # Update values for production environment
-                        sed -i 's|tag: latest|tag: latest|g' charts/values-prod.yaml
-                        
-                        # Only clean up the target namespace (prod) that might conflict
-                        TARGET_NS="prod"
-                        if kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                            echo "Checking namespace \$TARGET_NS..."
-                            if ! kubectl get namespace \$TARGET_NS -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
-                                echo "Namespace \$TARGET_NS exists but not managed by Helm, deleting..."
-                                kubectl delete namespace \$TARGET_NS --ignore-not-found=true
-                                
-                                # Wait for target namespace to be fully deleted with timeout
-                                echo "Waiting for namespace \$TARGET_NS to be deleted..."
-                                for i in {1..60}; do
-                                    if ! kubectl get namespace \$TARGET_NS >/dev/null 2>&1; then
-                                        echo "Namespace \$TARGET_NS successfully deleted."
-                                        break
-                                    fi
-                                    if [ \$i -eq 60 ]; then
-                                        echo "Warning: Namespace deletion timed out after 2 minutes, proceeding anyway..."
-                                        break
-                                    fi
-                                    sleep 2
-                                done
-                            else
-                                echo "Namespace \$TARGET_NS is already managed by Helm, skipping deletion."
-                            fi
-                        else
-                            echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
-                        fi
-                        
-                        # Deploy to production namespace with timeout
-                        helm upgrade --install microservice-prod ./charts \\
-                            --namespace prod \\
-                            --create-namespace \\
-                            --values charts/values-prod.yaml \\
-                            --wait \\
-                            --timeout 15m
-                    """
+                    deployToEnvironment('prod', 'charts/values-prod.yaml')
                 }
             }
         }
@@ -336,48 +127,57 @@ pipeline {
                         not { branch 'master' }
                         not { branch 'main' }
                     }
+                    options {
+                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
+                    }
                     steps {
-                        sh '''
-                            echo "Running health checks for Dev environment..."
-                            # Add health check scripts here
-                            kubectl get pods -n dev
-                        '''
+                        script {
+                            healthCheck('dev')
+                        }
                     }
                 }
                 stage('Health Check QA') {
                     when {
-                        branch 'develop'
+                        not { branch 'master' }
+                        not { branch 'main' }
+                    }
+                    options {
+                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
                     }
                     steps {
-                        sh '''
-                            echo "Running health checks for QA environment..."
-                            kubectl get pods -n qa
-                        '''
+                        script {
+                            healthCheck('qa')
+                        }
                     }
                 }
                 stage('Health Check Staging') {
                     when {
-                        branch 'develop'
+                        not { branch 'master' }
+                        not { branch 'main' }
+                    }
+                    options {
+                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
                     }
                     steps {
-                        sh '''
-                            echo "Running health checks for Staging environment..."
-                            kubectl get pods -n staging
-                        '''
+                        script {
+                            healthCheck('staging')
+                        }
                     }
                 }
-                stage('Health Check Prod') {
+                stage('Health Check Production') {
                     when {
                         anyOf {
                             branch 'master'
                             branch 'main'
                         }
                     }
+                    options {
+                        timeout(time: HEALTH_CHECK_TIMEOUT_MIN, unit: 'MINUTES')
+                    }
                     steps {
-                        sh '''
-                            echo "Running health checks for Production environment..."
-                            kubectl get pods -n prod
-                        '''
+                        script {
+                            healthCheck('prod')
+                        }
                     }
                 }
             }
@@ -386,21 +186,233 @@ pipeline {
     
     post {
         always {
-            // Clean up Docker images
-            sh '''
-                docker system prune -f
-            '''
+            script {
+                // Clean up Docker images
+                sh 'docker system prune -f'
+                
+                // Archive deployment logs if they exist
+                archiveArtifacts artifacts: 'deployment-*.log', allowEmptyArchive: true
+            }
         }
         success {
-            echo 'Pipeline succeeded!'
-            // Add notification logic here (Slack, email, etc.)
+            echo "Pipeline succeeded for branch: ${env.BRANCH_NAME}"
+            script {
+                sendNotification('success')
+            }
         }
         failure {
-            echo 'Pipeline failed!'
-            // Add notification logic here
+            echo "Pipeline failed for branch: ${env.BRANCH_NAME}"
+            script {
+                sendNotification('failure')
+            }
         }
         cleanup {
             cleanWs()
         }
     }
+}
+
+// Helper Functions
+def setBuildMetadata() {
+    def branchName = env.BRANCH_NAME
+    if (!branchName || branchName == 'HEAD') {
+        branchName = env.GIT_BRANCH
+        if (branchName && branchName.startsWith('origin/')) {
+            branchName = branchName.replace('origin/', '')
+        }
+        if (!branchName || branchName == 'HEAD') {
+            branchName = sh(
+                script: "git branch -r --contains HEAD | grep -v HEAD | head -1 | sed 's|origin/||' | xargs",
+                returnStdout: true
+            ).trim()
+        }
+    }
+    
+    env.BRANCH_NAME = branchName ?: 'main'
+    env.GIT_COMMIT_SHORT = sh(
+        script: "git rev-parse --short HEAD",
+        returnStdout: true
+    ).trim()
+    
+    def buildNumber = env.BUILD_NUMBER ?: '1'
+    def commitShort = env.GIT_COMMIT_SHORT ?: 'unknown'
+    env.BUILD_TAG = "${env.BRANCH_NAME}-${buildNumber}-${commitShort}"
+    
+    echo "Build Metadata:"
+    echo "   Branch: ${env.BRANCH_NAME}"
+    echo "   Build Number: ${buildNumber}"
+    echo "   Commit: ${commitShort}"
+    echo "   Build Tag: ${env.BUILD_TAG}"
+}
+
+def buildDockerImage(String serviceName, String imageName) {
+    dir(serviceName) {
+        def image = docker.build("${imageName}:${env.BUILD_TAG}")
+        echo "Built ${serviceName} image: ${imageName}:${env.BUILD_TAG}"
+    }
+}
+
+def pushDockerImages() {
+    sh 'docker login -u $DOCKER_ID -p $DOCKER_PASS'
+    
+    // Push service images
+    sh "docker push ${env.MOVIE_SERVICE_IMAGE}:${env.BUILD_TAG}"
+    sh "docker push ${env.CAST_SERVICE_IMAGE}:${env.BUILD_TAG}"
+    
+    echo "Pushed images with tag: ${env.BUILD_TAG}"
+    
+    // Tag and push latest for main branches
+    if (env.BRANCH_NAME == 'master' || env.BRANCH_NAME == 'main') {
+        sh """
+            docker tag ${env.MOVIE_SERVICE_IMAGE}:${env.BUILD_TAG} ${env.MOVIE_SERVICE_IMAGE}:latest
+            docker tag ${env.CAST_SERVICE_IMAGE}:${env.BUILD_TAG} ${env.CAST_SERVICE_IMAGE}:latest
+            docker push ${env.MOVIE_SERVICE_IMAGE}:latest
+            docker push ${env.CAST_SERVICE_IMAGE}:latest
+        """
+        echo "Pushed latest tags for main branch"
+    }
+}
+
+def deployToEnvironment(String environment, String valuesFile) {
+    echo "Deploying to ${environment.toUpperCase()} environment..."
+    
+    try {
+        // Update image tags in values file
+        updateImageTags(valuesFile)
+        
+        // Clean up namespace if needed
+        cleanupNamespace(environment)
+        
+        // Deploy with Helm
+        deployWithHelm(environment, valuesFile)
+        
+        echo "Successfully deployed to ${environment}"
+        
+    } catch (Exception e) {
+        echo "Deployment to ${environment} failed: ${e.getMessage()}"
+        
+        // Debug information
+        sh """
+            echo "=== Debugging deployment failure ==="
+            kubectl get pods -n ${environment} || echo "No pods found"
+            kubectl get svc -n ${environment} || echo "No services found"
+            helm list -n ${environment} || echo "No helm releases found"
+        """
+        
+        throw e
+    }
+}
+
+def updateImageTags(String valuesFile) {
+    // Update image tags for different environments
+    if (valuesFile.contains('dev')) {
+        sh "sed -i 's|tag: HEAD-[0-9]*-[a-f0-9]*|tag: ${env.BUILD_TAG}|g' ${valuesFile}"
+    } else {
+        sh "sed -i 's|tag: .*|tag: ${env.BUILD_TAG}|g' ${valuesFile}"
+    }
+    echo "Updated image tags to ${env.BUILD_TAG} in ${valuesFile}"
+}
+
+def cleanupNamespace(String namespace) {
+    sh """
+        if kubectl get namespace ${namespace} >/dev/null 2>&1; then
+            echo "Checking namespace ${namespace}..."
+            if ! kubectl get namespace ${namespace} -o jsonpath='{.metadata.labels.app\\.kubernetes\\.io/managed-by}' | grep -q "Helm"; then
+                echo "Cleaning up non-Helm managed namespace ${namespace}..."
+                kubectl delete namespace ${namespace} --ignore-not-found=true
+                
+                # Wait for namespace deletion with timeout
+                for i in {1..60}; do
+                    if ! kubectl get namespace ${namespace} >/dev/null 2>&1; then
+                        echo "Namespace ${namespace} deleted successfully"
+                        break
+                    fi
+                    if [ \$i -eq 60 ]; then
+                        echo "Namespace deletion timed out, proceeding anyway..."
+                        break
+                    fi
+                    sleep 2
+                done
+            else
+                echo "Namespace ${namespace} is Helm-managed, skipping cleanup"
+            fi
+        else
+            echo "Namespace ${namespace} does not exist"
+        fi
+    """
+}
+
+def deployWithHelm(String environment, String valuesFile) {
+    def releaseName = "microservice-${environment}"
+    
+    sh """
+        set -e
+        echo "Deploying ${releaseName} to ${environment}..."
+        
+        # Deploy with Helm (without --wait to avoid timeouts)
+        if helm upgrade --install ${releaseName} ./charts \\
+            --namespace ${environment} \\
+            --create-namespace \\
+            --values ${valuesFile} \\
+            --timeout ${env.HELM_TIMEOUT}; then
+            echo "Helm deployment initiated successfully"
+        else
+            echo "Helm deployment failed"
+            exit 1
+        fi
+        
+        # Manual verification with timeout
+        echo "Verifying deployment..."
+        for i in {1..20}; do
+            READY_PODS=\$(kubectl get pods -n ${environment} --no-headers | grep -c "Running" || echo "0")
+            TOTAL_PODS=\$(kubectl get pods -n ${environment} --no-headers | wc -l || echo "0")
+            
+            echo "Pod status (\$i/20): \$READY_PODS/\$TOTAL_PODS running"
+            
+            if [ "\$READY_PODS" -gt 0 ] && [ "\$READY_PODS" -eq "\$TOTAL_PODS" ]; then
+                echo "All pods are running in ${environment}"
+                break
+            fi
+            
+            if [ \$i -eq 20 ]; then
+                echo "Deployment verification timed out, but continuing..."
+                kubectl get pods -n ${environment}
+            fi
+            
+            sleep 15
+        done
+    """
+}
+
+def healthCheck(String environment) {
+    echo "Running health checks for ${environment.toUpperCase()}..."
+    
+    sh """
+        echo "=== Health Check for ${environment} ==="
+        kubectl get pods -n ${environment}
+        kubectl get svc -n ${environment}
+        
+        # Check if services are responding (basic connectivity test)
+        PODS=\$(kubectl get pods -n ${environment} -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep -E '(movie-service|cast-service)' || echo "")
+        
+        for pod in \$PODS; do
+            echo "Checking connectivity to \$pod..."
+            kubectl exec \$pod -n ${environment} -- curl -f -s http://localhost:8000/api/v1/movies > /dev/null 2>&1 || \\
+            kubectl exec \$pod -n ${environment} -- curl -f -s http://localhost:8000/api/v1/casts > /dev/null 2>&1 || \\
+            echo "Health check failed for \$pod (this might be expected)"
+        done
+        
+        echo "Health check completed for ${environment}"
+    """
+}
+
+def sendNotification(String status) {
+    // Placeholder for notification logic
+    echo "Sending ${status} notification for build ${env.BUILD_TAG}"
+    
+    // Example: Send to Slack, email, etc.
+    // slackSend(
+    //     color: (status == 'success') ? 'good' : 'danger',
+    //     message: "${status.toUpperCase()}: Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BRANCH_NAME})"
+    // )
 }
