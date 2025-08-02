@@ -391,16 +391,114 @@ def healthCheck(String environment) {
         echo "=== Health Check for ${environment} ==="
         kubectl get pods -n ${environment}
         kubectl get svc -n ${environment}
-        
-        # Check if services are responding (basic connectivity test)
+    """
+    
+    // Get service pods and run health checks
+    def healthCheckResult = checkServiceHealth(environment)
+    
+    // Show pod logs for troubleshooting
+    showPodLogs(environment)
+    
+    // Report final status
+    reportHealthStatus(environment, healthCheckResult)
+}
+
+def checkServiceHealth(String environment) {
+    def healthCheckPassed = true
+    
+    sh """
+        # Get service pods
         PODS=\$(kubectl get pods -n ${environment} -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep -E '(movie-service|cast-service)' || echo "")
+        
+        HEALTH_CHECK_PASSED=true
         
         for pod in \$PODS; do
             echo "Checking connectivity to \$pod..."
-            kubectl exec \$pod -n ${environment} -- curl -f -s http://localhost:8000/api/v1/movies > /dev/null 2>&1 || \\
-            kubectl exec \$pod -n ${environment} -- curl -f -s http://localhost:8000/api/v1/casts > /dev/null 2>&1 || \\
-            echo "Health check failed for \$pod (this might be expected)"
+            
+            # Determine service type and endpoint
+            if [[ "\$pod" == *"movie-service"* ]]; then
+                ENDPOINT="http://localhost:8000/api/v1/movies"
+                SERVICE_TYPE="movie-service"
+            elif [[ "\$pod" == *"cast-service"* ]]; then
+                ENDPOINT="http://localhost:8000/api/v1/casts"
+                SERVICE_TYPE="cast-service"
+            else
+                echo "Unknown service type for pod \$pod, skipping..."
+                continue
+            fi
+            
+            # Test HTTP connectivity using Python
+            if ! testServiceEndpoint "\$pod" "\$ENDPOINT" "\$SERVICE_TYPE" "${environment}"; then
+                HEALTH_CHECK_PASSED=false
+            fi
         done
+        
+        # Return result via exit code
+        if [ "\$HEALTH_CHECK_PASSED" = true ]; then
+            exit 0
+        else
+            exit 1
+        fi
+    """
+    
+    return currentBuild.currentResult != 'FAILURE'
+}
+
+def testServiceEndpoint(String podName, String endpoint, String serviceType, String environment) {
+    def testResult = sh(
+        script: """
+            kubectl exec ${podName} -n ${environment} -- python -c "
+import urllib.request
+import sys
+try:
+    response = urllib.request.urlopen('${endpoint}')
+    status_code = response.getcode()
+    if status_code == 200:
+        print('PASS - ${serviceType} health check PASSED - HTTP Status: ' + str(status_code))
+        sys.exit(0)
+    else:
+        print('WARN - ${serviceType} health check WARNING - HTTP Status: ' + str(status_code))
+        sys.exit(0)
+except Exception as e:
+    print('FAIL - ${serviceType} health check FAILED - Error: ' + str(e))
+    sys.exit(1)
+" 2>/dev/null
+        """,
+        returnStatus: true
+    )
+    
+    if (testResult == 0) {
+        echo "Health check successful for ${podName}"
+        return true
+    } else {
+        echo "Health check failed for ${podName} - this might indicate an issue"
+        return false
+    }
+}
+
+def showPodLogs(String environment) {
+    sh """
+        echo ""
+        echo "=== Recent Pod Logs ==="
+        
+        # Get service pods
+        PODS=\$(kubectl get pods -n ${environment} -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep -E '(movie-service|cast-service)' || echo "")
+        
+        for pod in \$PODS; do
+            echo "--- Logs for \$pod ---"
+            kubectl logs \$pod -n ${environment} --tail=5 2>/dev/null || echo "Could not retrieve logs for \$pod"
+        done
+    """
+}
+
+def reportHealthStatus(String environment, boolean healthCheckPassed) {
+    sh """
+        echo ""
+        if [ "${healthCheckPassed}" = "true" ]; then
+            echo "SUCCESS: Health check completed successfully for ${environment}"
+        else
+            echo "WARNING: Health check completed with warnings for ${environment}"
+        fi
         
         echo "Health check completed for ${environment}"
     """
