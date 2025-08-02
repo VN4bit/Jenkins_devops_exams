@@ -112,6 +112,9 @@ pipeline {
                 not { branch 'main' }
                 not { branch 'develop' }
             }
+            options {
+                timeout(time: 15, unit: 'MINUTES')
+            }
             steps {
                 script {
                     sh """
@@ -146,12 +149,13 @@ pipeline {
                             echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
                         fi
                         
-                        # Deploy to dev namespace
+                        # Deploy to dev namespace with timeout
                         helm upgrade --install microservice-dev ./charts \\
                             --namespace dev \\
                             --create-namespace \\
                             --values charts/values-dev.yaml \\
-                            --wait
+                            --wait \\
+                            --timeout 10m
                     """
                 }
             }
@@ -159,7 +163,10 @@ pipeline {
         
         stage('Deploy to QA') {
             when {
-                branch 'develop'
+                not { branch 'develop' }
+            }
+            options {
+                timeout(time: 15, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -195,12 +202,13 @@ pipeline {
                             echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
                         fi
                         
-                        # Deploy to QA namespace
+                        # Deploy to QA namespace with timeout
                         helm upgrade --install microservice-qa ./charts \\
                             --namespace qa \\
                             --create-namespace \\
                             --values charts/values-qa.yaml \\
-                            --wait
+                            --wait \\
+                            --timeout 10m
                     """
                 }
             }
@@ -209,6 +217,9 @@ pipeline {
         stage('Deploy to Staging') {
             when {
                 branch 'develop'
+            }
+            options {
+                timeout(time: 15, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -244,12 +255,13 @@ pipeline {
                             echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
                         fi
                         
-                        # Deploy to staging namespace
+                        # Deploy to staging namespace with timeout
                         helm upgrade --install microservice-staging ./charts \\
                             --namespace staging \\
                             --create-namespace \\
                             --values charts/values-staging.yaml \\
-                            --wait
+                            --wait \\
+                            --timeout 10m
                     """
                 }
             }
@@ -261,6 +273,9 @@ pipeline {
                     branch 'master'
                     branch 'main'
                 }
+            }
+            options {
+                timeout(time: 20, unit: 'MINUTES')
             }
             steps {
                 script {
@@ -302,12 +317,13 @@ pipeline {
                             echo "Namespace \$TARGET_NS does not exist, proceeding with deployment."
                         fi
                         
-                        # Deploy to production namespace
+                        # Deploy to production namespace with timeout
                         helm upgrade --install microservice-prod ./charts \\
                             --namespace prod \\
                             --create-namespace \\
                             --values charts/values-prod.yaml \\
-                            --wait
+                            --wait \\
+                            --timeout 15m
                     """
                 }
             }
